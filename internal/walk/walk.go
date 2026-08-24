@@ -141,7 +141,7 @@ func crossShardContinuation(current frontierItem, edge *model.Edge, shardID int)
 // the label. An empty label index yields an empty result, never a nil slice.
 func (w *Walker) WalkFromLabel(ctx context.Context, label string, maxDepth int) ([]*model.Path, error) {
 	entries := w.store.LookupLabel(label)
-	var results []*model.Path
+	results := make([]*model.Path, 0)
 	for _, entry := range entries {
 		if err := stopWalk(ctx, w.metrics); err != nil {
 			return nil, err
