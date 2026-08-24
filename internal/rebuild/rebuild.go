@@ -2,6 +2,7 @@ package rebuild
 
 import (
 	"context"
+	"fmt"
 
 	"graphstore/internal/label"
 	"graphstore/internal/store"
@@ -22,8 +23,9 @@ func New(st *store.Store, ix *label.Index) *Rebuilder {
 }
 
 // Rebuild scans every vertex and repopulates the label index. When an entry
-// write fails the old index is restored and the error is returned; a partial
-// index is never published as a successful rebuild.
+// write fails the in-progress index is discarded and the error is returned; a
+// partial index is never published as a successful rebuild, so the previously
+// committed index stays in place until a later pass fully succeeds.
 func (r *Rebuilder) Rebuild(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -37,7 +39,13 @@ func (r *Rebuilder) Rebuild(ctx context.Context) error {
 		if vertex.Label == "" {
 			continue
 		}
-		_ = fresh.Add(vertex.Label, vertex.ID)
+		if err := fresh.Add(vertex.Label, vertex.ID); err != nil {
+			// Leave the previously committed index untouched: drop the
+			// partial fresh index instead of publishing it, and surface the
+			// failure so the caller does not mistake a dropped entry for a
+			// successful rebuild.
+			return fmt.Errorf("rebuild: write label %q for vertex %q: %w", vertex.Label, vertex.ID, err)
+		}
 	}
 	r.index.Replace(fresh.Snapshot())
 	return nil

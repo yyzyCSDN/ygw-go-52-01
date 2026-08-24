@@ -28,8 +28,10 @@ func (ix *Index) Capacity() int {
 	return ix.cap
 }
 
-// Add registers one vertex under one label. Adding beyond the configured cap
-// fails so a rebuild cannot silently drop entries.
+// Add registers one vertex under one label. Adding beyond the configured
+// per-label cap fails with ErrIndexFull so a rebuild cannot silently drop
+// entries: the caller must treat the failure as an aborted pass rather than
+// accept a partial index.
 func (ix *Index) Add(label, vertexID string) error {
 	if strings.TrimSpace(label) == "" || len(label) > 64 {
 		return fmt.Errorf("%w: label %q", model.ErrInvalidLabel, label)
@@ -42,6 +44,9 @@ func (ix *Index) Add(label, vertexID string) error {
 		if existing == vertexID {
 			return nil
 		}
+	}
+	if len(ids) >= ix.cap {
+		return fmt.Errorf("%w: label %q at capacity %d", model.ErrIndexFull, label, ix.cap)
 	}
 	ix.entries[label] = append(ids, vertexID)
 	return nil
