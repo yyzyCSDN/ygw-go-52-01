@@ -115,9 +115,18 @@ func (w *WAL) Rotate() error {
 		return err
 	}
 	w.nextID++
+	prev := w.current
 	w.current = next
 	w.segments = append(w.segments, next)
 	w.open = append(w.open, next)
+	// The rotated-out segment is no longer the write target, so release its
+	// file handle now. Without this every rotation leaks a handle and the
+	// segment file stays open until the whole WAL shuts down, which is why
+	// the open-handle count climbs and old segments cannot be deleted.
+	if err := prev.Close(); err != nil {
+		return fmt.Errorf("wal: close rotated segment %d: %w", prev.ID, err)
+	}
+	w.open = removeSegment(w.open, prev)
 	return nil
 }
 
@@ -166,4 +175,15 @@ func (w *WAL) Close() error {
 	w.open = nil
 	w.current = nil
 	return firstErr
+}
+
+// removeSegment returns open with the first occurrence of target removed,
+// preserving the order of the remaining entries.
+func removeSegment(open []*Segment, target *Segment) []*Segment {
+	for i, seg := range open {
+		if seg == target {
+			return append(open[:i], open[i+1:]...)
+		}
+	}
+	return open
 }

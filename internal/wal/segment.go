@@ -84,21 +84,26 @@ func (s *Segment) Size() int64 {
 	return s.size
 }
 
-// Close releases the file handle.
+// Close releases the file handle. It is idempotent: a segment that has
+// already been closed (for example by Rotate) is left untouched so closing it
+// again — as WAL.Close does over its open list — is a safe no-op.
 func (s *Segment) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var firstErr error
 	if s.writer != nil {
-		if err := s.writer.Flush(); err != nil {
-			return fmt.Errorf("wal: flush before close segment %d: %w", s.ID, err)
+		if err := s.writer.Flush(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("wal: flush before close segment %d: %w", s.ID, err)
 		}
+		s.writer = nil
 	}
 	if s.file != nil {
-		if err := s.file.Close(); err != nil {
-			return fmt.Errorf("wal: close segment %d: %w", s.ID, err)
+		if err := s.file.Close(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("wal: close segment %d: %w", s.ID, err)
 		}
+		s.file = nil
 	}
-	return nil
+	return firstErr
 }
 
 func segmentFileName(id int) string {
