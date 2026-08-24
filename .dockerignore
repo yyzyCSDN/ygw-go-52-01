@@ -1,0 +1,14 @@
+.git
+.claude
+.verification-cache
+evidence
+runner
+gocache
+gomodcache
+__pycache__
+*.jsonl
+*.key
+*.pem
+graphstore-data
+graphstore-wal
+*.xlsx
