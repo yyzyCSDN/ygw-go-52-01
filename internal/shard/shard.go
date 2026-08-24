@@ -75,6 +75,9 @@ func (s *Shard) Add(edge *model.Edge) error {
 	if edge == nil {
 		return errors.New("shard: nil edge")
 	}
+	if s.State != Active {
+		return fmt.Errorf("%w: shard %d is %s", model.ErrShardSealed, s.ID, s.State)
+	}
 	if len(s.edges) >= s.cap {
 		return fmt.Errorf("shard %d full at capacity %d", s.ID, s.cap)
 	}

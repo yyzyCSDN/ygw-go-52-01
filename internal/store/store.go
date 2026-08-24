@@ -119,6 +119,11 @@ func (s *Store) RotateBucket(bucket int) (int, int, error) {
 		return 0, 0, fmt.Errorf("store: bucket %d has no routed shard", bucket)
 	}
 	next := s.manager.Rotate(bucket)
+	// Point the route table at the new generation before anything else so the
+	// bucket's writes resolve to the active shard. Without this switch PutEdge
+	// keeps routing to the sealed generation and new edges silently land in a
+	// frozen shard, which breaks traversal at the shard boundary.
+	s.router.Switch(bucket, next.ID)
 	if s.wal != nil {
 		if err := s.wal.Rotate(); err != nil {
 			return 0, 0, fmt.Errorf("store: rotate wal: %w", err)
