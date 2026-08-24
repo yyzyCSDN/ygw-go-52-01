@@ -105,7 +105,7 @@ func (w *Walker) Walk(ctx context.Context, start string, maxDepth int) ([]*model
 				}
 				continuations = append(continuations, merge.Continuation{
 					Vertex: edge.To,
-					Depth:  1,
+					Depth:  current.depth + 1,
 					Path:   current.path.Append(edge.To, edge.ID),
 					Shard:  shardID,
 				})

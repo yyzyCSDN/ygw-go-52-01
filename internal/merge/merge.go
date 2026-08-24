@@ -72,7 +72,7 @@ func Merge(ctx context.Context, input *Input) (*Output, error) {
 				}
 				queue = append(queue, Continuation{
 					Vertex: edge.To,
-					Depth:  1,
+					Depth:  current.Depth + 1,
 					Path:   current.Path.Append(edge.To, edge.ID),
 					Shard:  current.Shard,
 				})
