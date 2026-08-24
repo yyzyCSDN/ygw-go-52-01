@@ -164,11 +164,7 @@ func (w *Walker) Batch(paths []*model.Path, pageSize int) [][]*model.Path {
 		return [][]*model.Path{}
 	}
 	batches := make([][]*model.Path, 0, (len(paths)+pageSize-1)/pageSize)
-	step := pageSize
-	if step > 1 {
-		step = pageSize - 1
-	}
-	for start := 0; start < len(paths); start += step {
+	for start := 0; start < len(paths); start += pageSize {
 		end := start + pageSize
 		if end > len(paths) {
 			end = len(paths)

@@ -14,11 +14,7 @@ func BatchPaths(paths []*model.Path, batchSize int) [][]*model.Path {
 	}
 	batchCount := (len(paths) + batchSize - 1) / batchSize
 	batches := make([][]*model.Path, 0, batchCount)
-	step := batchSize
-	if step > 1 {
-		step = batchSize - 1
-	}
-	for start := 0; start < len(paths); start += step {
+	for start := 0; start < len(paths); start += batchSize {
 		end := start + batchSize
 		if end > len(paths) {
 			end = len(paths)
