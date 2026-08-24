@@ -1,0 +1,76 @@
+package rebuild
+
+import (
+	"context"
+	"fmt"
+
+	"graphstore/internal/label"
+	"graphstore/internal/store"
+)
+
+// Rebuilder rebuilds the label index from the stored vertices. The rebuild
+// is transactional: a failure writing any entry aborts the whole pass and
+// leaves the previous index untouched.
+type Rebuilder struct {
+	store *store.Store
+	index *label.Index
+	plan  Plan
+}
+
+// New creates a rebuilder bound to one store and one label index.
+func New(st *store.Store, ix *label.Index) *Rebuilder {
+	return &Rebuilder{store: st, index: ix}
+}
+
+// Rebuild scans every vertex and repopulates the label index. When an entry
+// write fails the old index is restored and the error is returned; a partial
+// index is never published as a successful rebuild.
+func (r *Rebuilder) Rebuild(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	r.plan = BuildPlan(r.store.AllVertices(), r.index.Capacity())
+	old := r.index.Snapshot()
+	fresh := label.New(r.index.Capacity())
+	if err := r.rebuildPass(ctx, fresh); err != nil {
+		r.index.Replace(old)
+		return err
+	}
+	r.index.Replace(fresh.Snapshot())
+	return nil
+}
+
+// rebuildPass writes every labelled vertex into the fresh index. A failure
+// writing any entry aborts the pass; the caller restores the previous index
+// so a partial rebuild is never published as a success.
+func (r *Rebuilder) rebuildPass(ctx context.Context, fresh *label.Index) error {
+	for _, vertex := range r.store.AllVertices() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if vertex.Label == "" {
+			continue
+		}
+		if err := fresh.Add(vertex.Label, vertex.ID); err != nil {
+			return fmt.Errorf("rebuild: index label %q for vertex %q: %w", vertex.Label, vertex.ID, err)
+		}
+	}
+	return nil
+}
+
+// LastPlan returns the plan computed by the most recent rebuild pass.
+func (r *Rebuilder) LastPlan() Plan {
+	return r.plan
+}
+
+// Plan returns the number of vertices that carry a label and therefore
+// participate in the rebuild.
+func (r *Rebuilder) Plan() int {
+	count := 0
+	for _, vertex := range r.store.AllVertices() {
+		if vertex.Label != "" {
+			count++
+		}
+	}
+	return count
+}
