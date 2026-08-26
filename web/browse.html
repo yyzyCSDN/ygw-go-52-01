@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>GraphStore 图浏览</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #f7f8fa; color: #222; }
+    h1 { font-size: 1.4rem; }
+    .card { background: #fff; border: 1px solid #e2e5ea; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .mono { font-family: ui-monospace, monospace; }
+    .badge { display: inline-block; background: #e8f0fe; color: #1a56c4; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>GraphStore 图浏览 <span class="badge">browse</span></h1>
+  <div class="card">
+    <p>服务健康状态与当前数据规模。</p>
+    <table>
+      <tr><th>指标</th><th>值</th></tr>
+      <tr><td>状态</td><td id="status">加载中…</td></tr>
+      <tr><td>顶点数</td><td id="vertices">-</td></tr>
+      <tr><td>边数</td><td id="edges">-</td></tr>
+      <tr><td>分片数</td><td id="shards">-</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <p>从入口标签开始做深度受限遍历。</p>
+    <label>入口标签 <input id="label" value="station"></label>
+    <label>最大深度 <input id="depth" type="number" value="3" min="1"></label>
+    <button onclick="runWalk()">遍历</button>
+    <pre id="walk-result" class="mono"></pre>
+  </div>
+  <script>
+    async function refreshHealth() {
+      const response = await fetch("/healthz");
+      const data = await response.json();
+      document.getElementById("status").textContent = data.status;
+      document.getElementById("vertices").textContent = data.vertices;
+      document.getElementById("edges").textContent = data.edges;
+      document.getElementById("shards").textContent = data.shards;
+    }
+    async function runWalk() {
+      const label = document.getElementById("label").value;
+      const maxDepth = document.getElementById("depth").value;
+      const url = "/api/walk?label=" + encodeURIComponent(label) + "&maxDepth=" + encodeURIComponent(maxDepth);
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.error) {
+        document.getElementById("walk-result").textContent = "错误: " + data.error;
+        return;
+      }
+      const lines = data.paths.map(function (path) { return path.vertices.join(" -> ") + " (深度 " + path.depth + ")"; });
+      document.getElementById("walk-result").textContent = lines.join("\n") || "(空结果)";
+    }
+    refreshHealth();
+  </script>
+</body>
+</html>
